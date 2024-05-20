@@ -17,8 +17,9 @@ int main(int argc, char* argv[]) {
 
     pthread_join(thread_memoria, NULL);
 
-    //recibimos el path del kernel
-    char* path_instrucciones = recv(socket_cliente, &tipo_handshake, sizeof(handshake_t), MSG_WAITALL)
+    //recibimos el path del kernel y lo convertimos
+    char* path_instrucciones = recv(socket_cliente, size, sizeof(*string), MSG_WAITALL);
+    convertir_instruccion(path_instrucciones);
 
     // Cierro todos lo archivos y libero los punteros usados
     close(fd_memoria_server);
@@ -48,30 +49,61 @@ t_memoria_config* load_memoria_config(t_config* config) {
 }
 
 
-    recibir_instruccion(char* path_instrucciones){
-        
-    //abrimos el archivo para leer
-	FILE *archivo = fopen(path_instrucciones,"r");
-    t_instruccion leer;
-
-	fread(&leer,sizeof(struct archivo),1,archivo);
-
-	while(!feof(archivo)){
-    //leemos linea por linea y asignamos los valores a cada elemento de la struct
-    sscanf(line, "%s", tipo);
-
-    if (strcmp(tipo, "SET") == 0) {
-        instruccion.tipo = SET;
-        sscanf(line, "%*s %s %d", instruccion.registro, &instruccion.valor);
-    } else if (strcmp(tipo, "IO_GEN_SLEEP") == 0) {
-        instruccion.tipo = IO_GEN_SLEEP;
-        sscanf(line, "%*s %s %d", instruccion.dispositivo, &instruccion.tiempo);
-    } else if (strcmp(tipo, "EXIT") == 0) {
-        instruccion.tipo = EXIT;
+void leer_instruccion(const char* path_instrucciones) {
+    // Abrimos el archivo para leer
+    FILE *archivo = fopen(path_instrucciones, "r");
+    if (archivo == NULL) {
+        perror("Error al abrir el archivo");
+        return;
     }
-	   fread(&leer,sizeof(struct archivo),1,archivo);
-	}
 
-	fclose(archivo);
-    return instruccion;
+    char line[100];
+    t_instruccion instruccion;
+
+    while (!feof(archivo)) {
+        // Eliminamos el salto de línea al final de la cadena
+        line[strcspn(line, "\n")] = 0;
+
+        // Parseamos la instrucción
+        instruccion = convertir_instruction(line);
+        
+        // Aquí puedes enviar la instrucción parseada a la CPU
+        // Por ejemplo, imprimirla para ver que se parseó correctamente
+        switch (instruccion.tipo) {
+            case SET:
+                printf("SET %s %d\n", instruccion.registro, instruccion.valor);
+                break;
+            case IO_GEN_SLEEP:
+                printf("IO_GEN_SLEEP %s %d\n", instruccion.dispositivo, instruccion.tiempo);
+                break;
+            case EXIT:
+                printf("EXIT\n");
+                break;
+        }
+        
+        // Aquí llamarías a la función para enviar la instrucción a la CPU
+        // enviar_instruccion_a_cpu(instruccion);
+    }
+
+    fclose(archivo);
+}
+
+
+    t_instruccion Convertir_instruction(char* line) {
+        t_instruccion instruccion;
+        char tipo[20];
+
+        sscanf(line, "%s", tipo);
+
+        if (strcmp(tipo, "SET") == 0) {
+            instruccion.tipo = SET;
+            sscanf(line, "%*s %s %d", instruccion.registro, &instruccion.valor);
+        } else if (strcmp(tipo, "IO_GEN_SLEEP") == 0) {
+            instruccion.tipo = IO_GEN_SLEEP;
+            sscanf(line, "%*s %s %d", instruccion.dispositivo, &instruccion.tiempo);
+        } else if (strcmp(tipo, "EXIT") == 0) {
+            instruccion.tipo = EXIT;
+        }
+
+        return instruccion;
     }
