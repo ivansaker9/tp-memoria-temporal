@@ -49,8 +49,7 @@ t_memoria_config* load_memoria_config(t_config* config) {
 }
 
 
-void leer_instruccion(const char* path_instrucciones) {
-    // Abrimos el archivo para leer
+void leer_y_convertir_instrucciones(const char* path_instrucciones, int socket_cpu) {
     FILE *archivo = fopen(path_instrucciones, "r");
     if (archivo == NULL) {
         perror("Error al abrir el archivo");
@@ -60,50 +59,71 @@ void leer_instruccion(const char* path_instrucciones) {
     char line[100];
     t_instruccion instruccion;
 
-    while (!feof(archivo)) {
+    while (fgets(line, sizeof(line), archivo)) {
         // Eliminamos el salto de línea al final de la cadena
         line[strcspn(line, "\n")] = 0;
 
         // Parseamos la instrucción
-        instruccion = convertir_instruction(line);
+        instruccion = convertir_instruccion(line);
         
-        // Aquí puedes enviar la instrucción parseada a la CPU
-        // Por ejemplo, imprimirla para ver que se parseó correctamente
-        switch (instruccion.tipo) {
-            case SET:
-                printf("SET %s %d\n", instruccion.registro, instruccion.valor);
-                break;
-            case IO_GEN_SLEEP:
-                printf("IO_GEN_SLEEP %s %d\n", instruccion.dispositivo, instruccion.tiempo);
-                break;
-            case EXIT:
-                printf("EXIT\n");
-                break;
-        }
-        
-        // Aquí llamarías a la función para enviar la instrucción a la CPU
-        // enviar_instruccion_a_cpu(instruccion);
+        // Enviar la instrucción a la CPU
+        enviar_instruccion_a_cpu(socket_cpu, &instruccion);
     }
 
     fclose(archivo);
 }
 
 
-    t_instruccion Convertir_instruction(char* line) {
-        t_instruccion instruccion;
-        char tipo[20];
 
-        sscanf(line, "%s", tipo);
+t_instruccion convertir_instruccion(char* line) {
+    t_instruccion instruccion;
+    char tipo[20];
+    sscanf(line, "%s", tipo);
 
-        if (strcmp(tipo, "SET") == 0) {
-            instruccion.tipo = SET;
-            sscanf(line, "%*s %s %d", instruccion.registro, &instruccion.valor);
-        } else if (strcmp(tipo, "IO_GEN_SLEEP") == 0) {
-            instruccion.tipo = IO_GEN_SLEEP;
-            sscanf(line, "%*s %s %d", instruccion.dispositivo, &instruccion.tiempo);
-        } else if (strcmp(tipo, "EXIT") == 0) {
-            instruccion.tipo = EXIT;
-        }
-
-        return instruccion;
+    if (strcmp(tipo, "SET") == 0) {
+        instruccion.tipo = SET;
+        sscanf(line, "%*s %s %d", instruccion.registro1, &instruccion.valor);
+    } else if (strcmp(tipo, "IO_GEN_SLEEP") == 0) {
+        instruccion.tipo = IO_GEN_SLEEP;
+        sscanf(line, "%*s %s %d", instruccion.dispositivo, &instruccion.tiempo);
+    } else if (strcmp(tipo, "SUM") == 0) {
+        instruccion.tipo = SUM;
+        sscanf(line, "%*s %s %s", instruccion.registro1, instruccion.registro2);
+    } else if (strcmp(tipo, "SUB") == 0) {
+        instruccion.tipo = SUB;
+        sscanf(line, "%*s %s %s", instruccion.registro1, instruccion.registro2);
+    } else if (strcmp(tipo, "EXIT") == 0) {
+        instruccion.tipo = EXIT;
     }
+
+    return instruccion;
+}
+
+void enviar_instruccion_a_cpu(int socket_cpu, t_instruccion* instruccion) {
+    // Aquí serializamos la estructura para enviarla a través del socket
+    // Por simplicidad, se usa `send` directamente, pero puedes crear una función de serialización más compleja si es necesario
+
+    // Enviar tipo de instrucción
+    send(socket_cpu, &(instruccion->tipo), sizeof(instruccion->tipo), 0);
+
+    // Enviar campos según el tipo de instrucción
+    switch (instruccion->tipo) {
+        case SET:
+            send(socket_cpu, instruccion->registro1, sizeof(instruccion->registro1), 0);
+            send(socket_cpu, &(instruccion->valor), sizeof(instruccion->valor), 0);
+            break;
+        case IO_GEN_SLEEP:
+            send(socket_cpu, instruccion->dispositivo, sizeof(instruccion->dispositivo), 0);
+            send(socket_cpu, &(instruccion->tiempo), sizeof(instruccion->tiempo), 0);
+            break;
+        case SUM:
+        case SUB:
+            send(socket_cpu, instruccion->registro1, sizeof(instruccion->registro1), 0);
+            send(socket_cpu, instruccion->registro2, sizeof(instruccion->registro2), 0);
+            break;
+        case EXIT:
+            // No hay campos adicionales para enviar
+            break;
+    }
+}
+

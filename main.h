@@ -15,16 +15,20 @@ typedef struct {
 typedef enum {
     SET,
     IO_GEN_SLEEP,
+    SUM,
+    SUB,
     EXIT
 } t_tipo_instruccion;
 
 typedef struct {
     t_tipo_instruccion tipo;
-    char registro[10]; // Para instrucciones tipo SET
-    int valor;         // Para instrucciones tipo SET
+    char registro1[10]; // Para instrucciones tipo SET, SUM y SUB
+    char registro2[10]; // Para instrucciones tipo SUM y SUB
+    int valor;          // Para instrucciones tipo SET
     char dispositivo[20]; // Para instrucciones tipo IO_GEN_SLEEP
-    int tiempo;        // Para instrucciones tipo IO_GEN_SLEEP
+    int tiempo;         // Para instrucciones tipo IO_GEN_SLEEP
 } t_instruccion;
+
 
 
 /**
