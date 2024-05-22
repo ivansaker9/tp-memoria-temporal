@@ -22,14 +22,18 @@ typedef enum {
 
 typedef struct {
     t_tipo_instruccion tipo;
-    char registro1[10]; // Para instrucciones tipo SET, SUM y SUB
-    char registro2[10]; // Para instrucciones tipo SUM y SUB
-    int valor;          // Para instrucciones tipo SET
-    char dispositivo[20]; // Para instrucciones tipo IO_GEN_SLEEP
-    int tiempo;         // Para instrucciones tipo IO_GEN_SLEEP
+    char registro1[20];
+    int valor;
+    char dispositivo[20];
+    int tiempo;
+    char registro2[20];
 } t_instruccion;
 
-
+void* serializar_instruccion(t_instruccion* instruccion, int* size);
+void enviar_instruccion_a_cpu(int socket_cpu, t_instruccion* instruccion);
+t_instruccion convertir_instruccion(char* line);
+void leer_y_convertir_instrucciones(const char* path_instrucciones, int socket_cpu);
+t_memoria_config* load_memoria_config(t_config* config);
 
 /**
 * @fn    Carga la configuración en la estructura memoria_config
