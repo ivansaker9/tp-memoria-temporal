@@ -60,18 +60,14 @@ void leer_y_convertir_instrucciones(const char* path_instrucciones, int socket_c
     t_instruccion instruccion;
 
     while (fgets(line, sizeof(line), archivo)) {
-        // Eliminamos el salto de línea al final de la cadena
-        line[strcspn(line, "\n")] = 0;
-
-        // Parseamos la instrucción
+        line[strcspn(line, "\n")] = 0;  // Eliminar el salto de línea
         instruccion = convertir_instruccion(line);
-        
-        // Enviar la instrucción a la CPU
         enviar_instruccion_a_cpu(socket_cpu, &instruccion);
     }
 
     fclose(archivo);
 }
+
 
 
 
@@ -100,30 +96,50 @@ t_instruccion convertir_instruccion(char* line) {
 }
 
 void enviar_instruccion_a_cpu(int socket_cpu, t_instruccion* instruccion) {
-    // Aquí serializamos la estructura para enviarla a través del socket
-    // Por simplicidad, se usa `send` directamente, pero puedes crear una función de serialización más compleja si es necesario
+    int size;
+    void* buffer = serializar_instruccion(instruccion, &size);
 
-    // Enviar tipo de instrucción
-    send(socket_cpu, &(instruccion->tipo), sizeof(instruccion->tipo), 0);
+    send(socket_cpu, buffer, size, 0);
 
-    // Enviar campos según el tipo de instrucción
+    free(buffer);
+}
+
+
+
+void* serializar_instruccion(t_instruccion* instruccion, int* size) {
+    int offset = 0;
+    *size = sizeof(t_tipo_instruccion) + sizeof(instruccion->registro1) + sizeof(int) + sizeof(instruccion->dispositivo) + sizeof(int) + sizeof(instruccion->registro2);
+
+    void* buffer = malloc(*size);
+
+    memcpy(buffer + offset, &(instruccion->tipo), sizeof(t_tipo_instruccion));
+    offset += sizeof(t_tipo_instruccion);
+
     switch (instruccion->tipo) {
         case SET:
-            send(socket_cpu, instruccion->registro1, sizeof(instruccion->registro1), 0);
-            send(socket_cpu, &(instruccion->valor), sizeof(instruccion->valor), 0);
+            memcpy(buffer + offset, instruccion->registro1, sizeof(instruccion->registro1));
+            offset += sizeof(instruccion->registro1);
+            memcpy(buffer + offset, &(instruccion->valor), sizeof(int));
+            offset += sizeof(int);
             break;
         case IO_GEN_SLEEP:
-            send(socket_cpu, instruccion->dispositivo, sizeof(instruccion->dispositivo), 0);
-            send(socket_cpu, &(instruccion->tiempo), sizeof(instruccion->tiempo), 0);
+            memcpy(buffer + offset, instruccion->dispositivo, sizeof(instruccion->dispositivo));
+            offset += sizeof(instruccion->dispositivo);
+            memcpy(buffer + offset, &(instruccion->tiempo), sizeof(int));
+            offset += sizeof(int);
             break;
         case SUM:
         case SUB:
-            send(socket_cpu, instruccion->registro1, sizeof(instruccion->registro1), 0);
-            send(socket_cpu, instruccion->registro2, sizeof(instruccion->registro2), 0);
+            memcpy(buffer + offset, instruccion->registro1, sizeof(instruccion->registro1));
+            offset += sizeof(instruccion->registro1);
+            memcpy(buffer + offset, instruccion->registro2, sizeof(instruccion->registro2));
+            offset += sizeof(instruccion->registro2);
             break;
         case EXIT:
-            // No hay campos adicionales para enviar
             break;
     }
+
+    return buffer;
 }
+
 
