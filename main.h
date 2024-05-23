@@ -15,7 +15,7 @@ typedef struct {
 typedef enum {
     SET,
     IO_GEN_SLEEP,
-    SUM,
+    SUM, 
     SUB,
     EXIT
 } t_tipo_instruccion;
@@ -29,10 +29,13 @@ typedef struct {
     char registro2[20];
 } t_instruccion;
 
+
 void* serializar_instruccion(t_instruccion* instruccion, int* size);
 void enviar_instruccion_a_cpu(int socket_cpu, t_instruccion* instruccion);
 t_instruccion convertir_instruccion(char* line);
 void leer_y_convertir_instrucciones(const char* path_instrucciones, int socket_cpu);
+
+
 t_memoria_config* load_memoria_config(t_config* config);
 
 /**

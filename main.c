@@ -17,9 +17,12 @@ int main(int argc, char* argv[]) {
 
     pthread_join(thread_memoria, NULL);
 
-    //recibimos el path del kernel y lo convertimos
-    char* path_instrucciones = recv(socket_cliente, size, sizeof(*string), MSG_WAITALL);
-    convertir_instruccion(path_instrucciones);
+    if (pthread_create(thread_memoria, NULL, thread_aceptar_clientes, fd_servidor_p) != 0) {
+        perror("No se pudo crear el hilo para manejar interfaces");
+        free(fd_servidor_p);
+        exit(EXIT_FAILURE);
+    }
+
 
     // Cierro todos lo archivos y libero los punteros usados
     close(fd_memoria_server);
@@ -28,6 +31,22 @@ int main(int argc, char* argv[]) {
     free(memoria_config);
     
     return EXIT_OK;
+}
+
+void *thread_aceptar_clientes(void *socket_servidor) {
+    aceptar_clientes(*(int*)socket_servidor);
+    free(socket_servidor);
+    pthread_exit(NULL);
+    //recibimos el path del kernel
+    char* path_instrucciones = malloc(10*sizeof(char));
+    recv(conexion_kernel, path_instrucciones);
+
+    int* program_counter;
+    recv(conexion_cpu, program_counter);
+
+    //La convertimos y enviamos a la cpu
+    leer_y_convertir_instrucciones(path_instrucciones, conexion_cpu);
+    return NULL;
 }
 
 t_memoria_config* load_memoria_config(t_config* config) {
@@ -49,7 +68,7 @@ t_memoria_config* load_memoria_config(t_config* config) {
 }
 
 
-void leer_y_convertir_instrucciones(const char* path_instrucciones, int socket_cpu) {
+void leer_y_convertir_instrucciones(char* path_instrucciones, int socket_cpu) {
     FILE *archivo = fopen(path_instrucciones, "r");
     if (archivo == NULL) {
         perror("Error al abrir el archivo");
