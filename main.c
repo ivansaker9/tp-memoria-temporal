@@ -1,4 +1,5 @@
 #include "main.h"
+#include "memory_interface_handler.h"
 
 int main(int argc, char* argv[]) {
 
@@ -27,14 +28,13 @@ int main(int argc, char* argv[]) {
     else
         log_info(logger, "MODULO KERNEL CONECTO CON LA MEMORIA EXITOSAMENTE!");
 
-
     // Acepto interfaces en un thread aparte asi no frena la ejecución del programa
     manejador_de_interfaces(memoria_server);
 
     sleep(30);
 
     // Cierro todos lo archivos y libero los punteros usados
-    close(fd_memoria_server);
+    close(memoria_server);
     log_destroy(logger);
     config_destroy(config);
     free(memoria_config);
@@ -85,13 +85,16 @@ void leer_y_convertir_instrucciones(char* path_instrucciones, int socket_cpu, pr
 
     char line[100];
     t_instruccion instruccion;
+    int num_instrucciones = 0;
 
     while (fgets(line, sizeof(line), archivo)) {
 
         line[strcspn(line, "\n")] = 0;  // Eliminar el salto de línea
-        instruccion = convertir_instruccion(line);
-        if (program_counter) > 0) {
-        enviar_instruccion_a_cpu(socket_cpu, &instruccion);
+        num_instrucciones++;
+
+        if (program_counter >= 0 && program_counter < num_instrucciones) {
+            instruccion = convertir_instruccion(line);
+            enviar_instruccion_a_cpu(socket_cpu, &instruccion);
         }
     }
 
