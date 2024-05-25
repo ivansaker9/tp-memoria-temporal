@@ -9,20 +9,29 @@ int main(int argc, char* argv[]) {
     log_info(logger, "Archivo de configuración cargado correctamente");
 
     // Iniciamos servidor escuchando por conexiones de CPU, KERNEL e INTERFACES
-    int fd_memoria_server = modulo_escucha_conexiones_de("CPU, KERNEL e INTERFACES", memoria_config->puerto_escucha, logger);
+    int memoria_server = escuchar_conexiones_de("CPU, KERNEL e INTERFACES", memoria_config->puerto_escucha, logger);
 
-    // Acepto clientes en un thread aparte asi no frena la ejecución del programa
-    pthread_t thread_memoria;
-    atender_conexiones_al_modulo(&thread_memoria, fd_memoria_server);
+    // La MEMORIA espera que la CPU se conecte
+    int conexion_cpu = esperar_conexion_de(CPU_CON_MEMORIA, memoria_server);
 
-    pthread_join(thread_memoria, NULL);
+    if(conexion_cpu < 0)
+        log_error(logger, "MODULO CPU NO PUDO CONECTARSE CON LA MEMORIA!");
+    else
+        log_info(logger, "MODULO CPU CONECTO CON LA MEMORIA EXITOSAMENTE!");
 
-    if (pthread_create(thread_memoria, NULL, thread_aceptar_clientes, fd_servidor_p) != 0) {
-        perror("No se pudo crear el hilo para manejar interfaces");
-        free(fd_servidor_p);
-        exit(EXIT_FAILURE);
-    }
+    // La MEMORIA espera que el KERNEL se conecte
+    int conexion_kernel = esperar_conexion_de(KERNEL_CON_MEMORIA, memoria_server);
 
+    if(conexion_kernel < 0)
+        log_error(logger, "MODULO KERNEL NO PUDO CONECTARSE CON LA MEMORIA!");
+    else
+        log_info(logger, "MODULO KERNEL CONECTO CON LA MEMORIA EXITOSAMENTE!");
+
+
+    // Acepto interfaces en un thread aparte asi no frena la ejecución del programa
+    manejador_de_interfaces(memoria_server);
+
+    sleep(30);
 
     // Cierro todos lo archivos y libero los punteros usados
     close(fd_memoria_server);
@@ -30,23 +39,7 @@ int main(int argc, char* argv[]) {
     config_destroy(config);
     free(memoria_config);
     
-    return EXIT_OK;
-}
-
-void *thread_aceptar_clientes(void *socket_servidor) {
-    aceptar_clientes(*(int*)socket_servidor);
-    free(socket_servidor);
-    pthread_exit(NULL);
-    //recibimos el path del kernel
-    char* path_instrucciones = malloc(10*sizeof(char));
-    recv(conexion_kernel, path_instrucciones);
-
-    int* program_counter;
-    recv(conexion_cpu, program_counter);
-
-    //La convertimos y enviamos a la cpu
-    leer_y_convertir_instrucciones(path_instrucciones, conexion_cpu);
-    return NULL;
+    return OK;
 }
 
 t_memoria_config* load_memoria_config(t_config* config) {
@@ -67,8 +60,23 @@ t_memoria_config* load_memoria_config(t_config* config) {
     return memoria_config;
 }
 
+void *thread_aceptar_clientes(void *socket_servidor) {
+    aceptar_clientes(*(int*)socket_servidor);
+    free(socket_servidor);
+    pthread_exit(NULL);
+    //recibimos el path del kernel
+    char* path_instrucciones = malloc(10*sizeof(char));
+    recv(conexion_kernel, path_instrucciones);
 
-void leer_y_convertir_instrucciones(char* path_instrucciones, int socket_cpu) {
+    int* program_counter;
+    recv(conexion_cpu, program_counter);
+
+    //La convertimos y enviamos a la cpu
+    leer_y_convertir_instrucciones(path_instrucciones, conexion_cpu, program_counter);
+    return NULL;
+}
+
+void leer_y_convertir_instrucciones(char* path_instrucciones, int socket_cpu, program_counter) {
     FILE *archivo = fopen(path_instrucciones, "r");
     if (archivo == NULL) {
         perror("Error al abrir el archivo");
@@ -79,9 +87,12 @@ void leer_y_convertir_instrucciones(char* path_instrucciones, int socket_cpu) {
     t_instruccion instruccion;
 
     while (fgets(line, sizeof(line), archivo)) {
+
         line[strcspn(line, "\n")] = 0;  // Eliminar el salto de línea
         instruccion = convertir_instruccion(line);
+        if (program_counter) > 0) {
         enviar_instruccion_a_cpu(socket_cpu, &instruccion);
+        }
     }
 
     fclose(archivo);
