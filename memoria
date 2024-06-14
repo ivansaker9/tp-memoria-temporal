@@ -1,0 +1,53 @@
+void manejar_instrucciones_stdout(int socket_stdout)
+{
+
+    while (1)
+    {
+
+        paquete_t *paquete = recibir_paquete(socket_stdout);
+
+        if (paquete == NULL)
+        {
+            perror("Error al recibir paquete de STDOUT");
+            exit(EXIT_FAILURE);
+        }
+
+        TIEMPO_UNIDAD_DE_TRABAJO(memoria_config->retardo_respuesta);
+
+        switch (paquete->operacion)
+        {
+        case IO_STDOUT_WRITE:
+        {
+            uint32_t address, size;
+            payload_read(paquete->payload, &address, sizeof(address));
+            payload_read(paquete->payload, &size, sizeof(size));
+            char *buffer = "prueba stdout, por favor q compile y funcione";
+
+            // enviamos el paquete
+            int tam = strlen(buffer) + sizeof(int);
+
+            payload_t *payload = payload_create(tam);
+
+            // cantidad de direcciones
+            payload_add_string(payload, buffer);
+
+            paquete_t *paquete_a_enviar = crear_paquete(IO_STDOUT_WRITE, payload);
+
+            if (enviar_paquete(socket_stdout, paquete_a_enviar) != OK)
+            {
+                printf("fallo al enviar el paquete a stdout");
+                exit(EXIT_FAILURE);
+            }
+
+            log_debug(extra_logger, "Ejecutando: IO_STDOUT_WRITE [%s]", buffer);
+            break;
+        }
+        default:
+            log_error(extra_logger, "Operacion de STDOUT no reconocida");
+            break;
+        }
+
+        payload_destroy(paquete->payload);
+        liberar_paquete(paquete);
+    }
+}
